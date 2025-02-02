@@ -12,7 +12,8 @@
 
 #define SCREEN_ADDRESS 0x3C
 
-#define XPOS   0 // Indexes into the 'icons' array
+// Indexes into the 'icons' array for snow animation.
+#define XPOS   0 
 #define YPOS   1
 #define DELTAY 2
  
@@ -54,12 +55,12 @@ const long intervalSnowflakes = 100;
 // Time Management for 7 segment display
 unsigned long previousMillis = 0;
 unsigned long previousSegmentMillis = 0;
-const long intervalSegment = 500;  // 750ms interval
+const long intervalSegment = 500;  // 500ms interval
 int step = 0;              // Keeps track of which digit to display next
 int first, last;           // Store first and last digit globally
 bool isTwoDigit = false;   // Flag to check if number has two digits
 
-// Icons
+// Snowflake Icon
 static const unsigned char PROGMEM snowflake_icon[] =
 { 0b00000000, 0b11000000,
   0b00000001, 0b11000000,
@@ -87,7 +88,7 @@ void setup() {
   Serial.begin(9600);
   display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
 
-   // Allow turn oled to turn on
+   // Allow turn OLED to turn on
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
   }
@@ -96,11 +97,10 @@ void setup() {
 
   // Clear the buffer for oled.
   display.clearDisplay();
-  // drawing commands to make them visible on screen!
 
   // --------------------------------------------------
 
-  // initialise pins
+  // Initialise pins
   pinMode(E, OUTPUT);
   pinMode(D, OUTPUT);
   pinMode(C, OUTPUT);
@@ -111,7 +111,7 @@ void setup() {
   pinMode(B, OUTPUT);
   pinMode(buttonPin, INPUT_PULLUP);
 
-  // initialise snowflakes anim
+  // Initialise snowflakes animation 
   for (int f = 0; f < NUMFLAKES; f++) {
     icons[f][XPOS]   = random(1, display.width() - LOGO_WIDTH);  // Random X position
     icons[f][YPOS]   = random(-LOGO_HEIGHT, 0);  // Start above the screen
@@ -122,35 +122,35 @@ void setup() {
 
 // ---------------------------- Loop ----------------------------
 
-int incrementHolder = 0;
-int buttonState = 0;
-int x = 39, y = 7;    // Starting position
-int xSpeed = 2, ySpeed = 1; // Speed of movement  
-float ifTemp = 0;
 
-// Create a state to cntrole
+int incrementHolder = 0; // To initially control manually changing digits.
+int buttonState = 0; // Control button.
+int x = 39, y = 7;    // Starting position.
+int xSpeed = 2, ySpeed = 1; // Speed of movement.
 
-// state system that holds , snow, cloud, sun, clearScreen
+float ifTemp = 0; // Temperature variable for checks.
 
-// counters
+// Animation Counters
 int sun_counter = 0, cloud_counter = 0;
-void loop() {
-  unsigned long currentMillis = millis();  // Get the current time
 
-  // vars to recieve temperature
+void loop() {
+  
+   // --------- Time Management ----------
+  unsigned long currentMillis = millis(); 
+
+  // ---------- Temperature Calculations -------------
+
   int tempReading = analogRead(DHT_SENSOR_PIN);
-  // This is OK
   double tempK = log(10000.0 * ((1024.0 / tempReading - 1)));
   tempK = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * tempK * tempK )) * tempK );       //  Temp Kelvin
   float tempC = tempK - 273.15;            // Convert Kelvin to Celcius
 
   float temperature;
-  float humidity;
+  float humidity; // May use this in the future
 
-  // Animation Manager
+  // ------- Animation Manager ------------
 
-  // if statements to show temp -> less than 15 snowflakes 15-20 wind 20-27 sun 27+ lava
-  Serial.println(ifTemp);
+  // Temperature Control -> {[t < 15, snowflakes], [t 15-20, cloud], [t > 20, sun]}
   if(ifTemp < 15) 
   {
     if (currentMillis - previousMillisSnowflakes >= intervalSnowflakes) 
@@ -192,6 +192,7 @@ void loop() {
 
   
 
+// -------- Displaying Temperature on Segment Display ----------
 if (currentMillis - previousSegmentMillis >= intervalSegment) {
   previousSegmentMillis = currentMillis; // Reset timer
   switch (step) {
@@ -213,10 +214,10 @@ if (currentMillis - previousSegmentMillis >= intervalSegment) {
     }
     step++;
 }
-  // put your main code here, to run repeatedly:
+  // ---------- Button control ------------
   buttonState = digitalRead(buttonPin);
 
-  // control button functionaility
+  // Control button functionality.
   if(buttonState == HIGH) {
     incrementHolder++;
     if(incrementHolder > 10) {
@@ -225,19 +226,18 @@ if (currentMillis - previousSegmentMillis >= intervalSegment) {
     delay(200); // debounce
   }
 
+  // --------- Temperature Control ----------
   if( measure_environment( &temperature, &humidity ) == true )
   {
-      // temp update
+      // Calculations to how temp
       displayTemp(temperature);
       ifTemp = temperature;
   }
-  //displayDigit(incrementHolder);
 }
 
 // ---------------------------- Functions ----------------------------
 
-
-
+// Uses dht_nonblocking library to grab temperature every 3 seconds.
 static bool measure_environment( float *temperature, float *humidity )
 {
   static unsigned long measurement_timestamp = millis( );
@@ -255,7 +255,7 @@ static bool measure_environment( float *temperature, float *humidity )
   return( false );
 }
 
-// Function to numbers to 7-seg display 
+// Function to map numbers to 7-segment display 
 const byte digitMap[11] = {
   0b01111110, // 0
   0b00110000, // 1
@@ -270,14 +270,7 @@ const byte digitMap[11] = {
   0b10000000  // .
 };
 
-// void drawStartLogo(void) {
-//   // display.clearDisplay();
-//   display.drawBitmap(
-//     (display.width()  - LOGO_WIDTH / 2),
-//     (display.height() - LOGO_HEIGHT / 2),
-//     logo_bmp, LOGO_WIDTH, LOGO_HEIGHT, SSD1306_WHITE);
-// }
-
+// Programmitic animation of snow.
 void snowflakes(const uint8_t *bitmap, uint8_t w, uint8_t h) {
   // Initialize snowflake positions only once
   for (f = 0; f < NUMFLAKES; f++) {
@@ -313,7 +306,7 @@ void snowflakes(const uint8_t *bitmap, uint8_t w, uint8_t h) {
 void displayDigit(int num) {
   if (num < 0 || num > 10) return; // Ensure valid digit
 
-  byte pattern = digitMap[num];
+  byte pattern = digitMap[num]; // use mapping.
 
   digitalWrite(A, bitRead(pattern, 6));
   digitalWrite(B, bitRead(pattern, 5));
@@ -325,8 +318,9 @@ void displayDigit(int num) {
   digitalWrite(Dp, bitRead(pattern, 7)); // DP (Decimal point)
 }
 
+// Calculates the first and last digits to display in Segment Display
 void displayTemp(float temperature) {
-  int temp = abs(int(temperature)); // Convert float to int & ensure positive value
+  int temp = abs(int(temperature)); // Convert float to int
   first = temp;
 
   // Extract first digit
